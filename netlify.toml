@@ -1,0 +1,1 @@
+[build]\n  command = "npm install && npm run build"\n  publish = "dist"\n\n[[redirects]]\n  from = "/*"\n  to = "/index.html"\n  status = 200\n\n[dev]\n  command = "npm run dev"\n  port = 3000\n
