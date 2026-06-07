@@ -14,6 +14,18 @@ function App() {
 
   useEffect(() => {
     verificarUtilizador()
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_OUT') {
+        setUser(null)
+        setCurrentPage('landing')
+      } else if (event === 'SIGNED_IN' && session?.user) {
+        setUser(session.user)
+        setCurrentPage('dashboard')
+      }
+    })
+
+    return () => subscription.unsubscribe()
   }, [])
 
   const verificarUtilizador = async () => {
@@ -60,10 +72,10 @@ function App() {
         <Landing onNavigateTo={handleNavigateTo} />
       )}
       {currentPage === 'login' && (
-        <Login onSuccess={handleLoginSuccess} />
+        <Login onSuccess={handleLoginSuccess} onNavigateTo={handleNavigateTo} />
       )}
       {currentPage === 'register' && (
-        <Register onSuccess={handleLoginSuccess} />
+        <Register onSuccess={handleLoginSuccess} onNavigateTo={handleNavigateTo} />
       )}
       {currentPage === 'dashboard' && user && (
         <Dashboard onNavigateTo={handleNavigateTo} onAbrirEditor={handleAbrirEditor} />

@@ -32,7 +32,7 @@ export function Dashboard({ onNavigateTo, onAbrirEditor }) {
     if (!novoTitulo.trim()) return
     try {
       const novoCV = await criarCV(novoTitulo, 'classico')
-      setCVs([...cvs, novoCV])
+      setCVs([novoCV, ...cvs])
       setMostrarModal(false)
       setNovoTitulo('')
       onAbrirEditor(novoCV.id)
@@ -42,8 +42,12 @@ export function Dashboard({ onNavigateTo, onAbrirEditor }) {
   }
 
   const handleLogout = async () => {
-    await supabase.auth.signOut()
-    onNavigateTo('landing')
+    try {
+      await supabase.auth.signOut()
+      onNavigateTo('landing')
+    } catch (err) {
+      console.error('Erro ao fazer logout:', err)
+    }
   }
 
   return (
@@ -96,6 +100,8 @@ export function Dashboard({ onNavigateTo, onAbrirEditor }) {
           value={novoTitulo}
           onChange={(e) => setNovoTitulo(e.target.value)}
           className="w-full px-3 py-2 border border-gray-300 rounded-lg mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          maxLength={100}
+          onKeyDown={(e) => e.key === 'Enter' && handleNovoCV()}
         />
         <div className="flex gap-4">
           <Button onClick={handleNovoCV} className="flex-1">Criar</Button>

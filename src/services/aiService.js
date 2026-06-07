@@ -1,88 +1,40 @@
 // ============================================================
-// aiService.js — Serviço central de IA com fallback automático
-// Gemini (principal) → Groq (fallback se Gemini falhar)
+// aiService.js — Serviço central de IA
+// As chamadas passam por uma Netlify Function (/.netlify/functions/ai)
+// para manter as chaves de API fora do bundle do frontend.
+// O fallback Gemini → Groq é tratado no servidor.
 // ============================================================
 
-const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY
-const GROQ_API_KEY = import.meta.env.VITE_GROQ_API_KEY
+const AI_ENDPOINT = '/.netlify/functions/ai'
 
-const GEMINI_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`
-const GROQ_ENDPOINT = `https://api.groq.com/openai/v1/chat/completions`
-
-// ─── Chamada ao Gemini ──────────────────────────────────────
-async function callGemini(systemPrompt, userPrompt) {
-  const response = await fetch(GEMINI_ENDPOINT, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      system_instruction: {
-        parts: [{ text: systemPrompt }]
-      },
-      contents: [
-        { role: 'user', parts: [{ text: userPrompt }] }
-      ],
-      generationConfig: {
-        temperature: 0.7,
-        maxOutputTokens: 1024,
-      }
-    })
-  })
-
-  if (!response.ok) {
-    const err = await response.json()
-    throw new Error(`Gemini erro ${response.status}: ${err?.error?.message || 'Desconhecido'}`)
-  }
-
-  const data = await response.json()
-  return data.candidates[0].content.parts[0].text
-}
-
-// ─── Chamada ao Groq (fallback) ─────────────────────────────
-async function callGroq(systemPrompt, userPrompt) {
-  const response = await fetch(GROQ_ENDPOINT, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${GROQ_API_KEY}`
-    },
-    body: JSON.stringify({
-      model: 'llama-3.3-70b-versatile',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt }
-      ],
-      temperature: 0.7,
-      max_tokens: 1024
-    })
-  })
-
-  if (!response.ok) {
-    const err = await response.json()
-    throw new Error(`Groq erro ${response.status}: ${err?.error?.message || 'Desconhecido'}`)
-  }
-
-  const data = await response.json()
-  return data.choices[0].message.content
-}
-
-// ─── Função principal com fallback automático ───────────────
+// ─── Função principal ───────────────────────────────────────
 async function callAI(systemPrompt, userPrompt) {
+  let response
   try {
-    console.log('[AI] A usar Gemini...')
-    const result = await callGemini(systemPrompt, userPrompt)
-    console.log('[AI] Gemini respondeu com sucesso.')
-    return result
-  } catch (geminiError) {
-    console.warn('[AI] Gemini falhou, a mudar para Groq...', geminiError.message)
-    try {
-      const result = await callGroq(systemPrompt, userPrompt)
-      console.log('[AI] Groq respondeu com sucesso (fallback).')
-      return result
-    } catch (groqError) {
-      console.error('[AI] Ambas APIs falharam.', groqError.message)
-      throw new Error('Serviço de IA temporariamente indisponível. Tenta novamente.')
-    }
+    response = await fetch(AI_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ systemPrompt, userPrompt })
+    })
+  } catch {
+    throw new Error('Não foi possível contactar o serviço de IA. Verifica a tua ligação.')
   }
+
+  if (!response.ok) {
+    let errMsg = 'Serviço de IA temporariamente indisponível. Tenta novamente.'
+    try {
+      const err = await response.json()
+      errMsg = err?.error || errMsg
+    } catch {}
+    throw new Error(errMsg)
+  }
+
+  const data = await response.json()
+  const text = data?.text
+  if (!text) {
+    throw new Error('O serviço de IA retornou uma resposta vazia.')
+  }
+  return text
 }
 
 // ============================================================
@@ -103,11 +55,11 @@ export async function gerarResumoProfissional(dadosUtilizador) {
   
   const userPrompt = `
 Gera um resumo profissional impactante para um CV com estes dados:
-- Nome: ${nome}
-- Cargo actual/pretendido: ${cargo}
-- Anos de experiência: ${anos_experiencia}
-- Sector: ${sector}
-- Principais competências: ${competencias}
+- Nome: ${nome || 'Não especificado'}
+- Cargo actual/pretendido: ${cargo || 'Não especificado'}
+- Anos de experiência: ${anos_experiencia || 'Não especificado'}
+- Sector: ${sector || 'Não especificado'}
+- Principais competências: ${competencias || 'Não especificado'}
 - Objectivo profissional: ${objetivo || 'progressão de carreira'}
 
 O resumo deve ter 3-4 frases, ser orientado para resultados, e destacar o valor que o candidato traz.
@@ -123,10 +75,10 @@ export async function melhorarExperiencia(experiencia) {
   
   const userPrompt = `
 Melhora esta descrição de experiência profissional para um CV:
-- Cargo: ${cargo}
-- Empresa: ${empresa}
-- Sector: ${sector}
-- Descrição actual (bruta): ${descricao_raw}
+- Cargo: ${cargo || 'Não especificado'}
+- Empresa: ${empresa || 'Não especificado'}
+- Sector: ${sector || 'Não especificado'}
+- Descrição actual (bruta): ${descricao_raw || 'Não especificado'}
 
 Reescreve em 3-5 bullet points com verbos de acção fortes (Liderou, Implementou, Reduziu, Aumentou, etc.).
 Adiciona percentagens ou métricas onde fizer sentido contextualmente.
@@ -195,10 +147,10 @@ Formato JSON:
 export async function gerarCartaApresentacao(cvData, empresa, vaga) {
   const userPrompt = `
 Escreve uma carta de apresentação profissional em português para:
-- Candidato: ${cvData.nome}, ${cvData.cargo}
+- Candidato: ${cvData.nome || 'Não especificado'}, ${cvData.cargo || 'Não especificado'}
 - Empresa: ${empresa}
 - Vaga: ${vaga}
-- Experiência: ${cvData.anos_experiencia} anos em ${cvData.sector}
+- Experiência: ${cvData.anos_experiencia || 'Não especificado'} anos em ${cvData.sector || 'Não especificado'}
 
 A carta deve ter 3 parágrafos: abertura impactante, valor que traz, call-to-action.
 Tom: profissional mas caloroso. Máximo 250 palavras.
@@ -217,8 +169,8 @@ ${texto}
 Responde APENAS com a tradução.
 `
 
-  const systemTradução = `És um tradutor especializado em documentos profissionais e CVs. Mantens sempre o tom formal e a terminologia de RH correcta.`
-  return await callAI(systemTradução, userPrompt)
+  const systemTraducao = `És um tradutor especializado em documentos profissionais e CVs. Mantens sempre o tom formal e a terminologia de RH correcta.`
+  return await callAI(systemTraducao, userPrompt)
 }
 
-export default { callAI, gerarResumoProfissional, melhorarExperiencia, sugerirCompetencias, otimizarParaVaga, gerarCartaApresentacao, traduzirSeccao }
+export { callAI }
