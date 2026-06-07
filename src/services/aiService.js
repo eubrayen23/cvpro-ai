@@ -1,88 +1,36 @@
 // ============================================================
 // aiService.js — Serviço central de IA com fallback automático
-// Gemini (principal) → Groq (fallback se Gemini falhar)
+// Calls go through the Netlify serverless proxy (/api/ai-proxy)
+// so API keys are NEVER exposed in the client bundle.
 // ============================================================
 
-const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY
-const GROQ_API_KEY = import.meta.env.VITE_GROQ_API_KEY
+const AI_PROXY_ENDPOINT = '/.netlify/functions/ai-proxy'
 
-const GEMINI_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`
-const GROQ_ENDPOINT = `https://api.groq.com/openai/v1/chat/completions`
+const MAX_INPUT_LENGTH = 3000
 
-// ─── Chamada ao Gemini ──────────────────────────────────────
-async function callGemini(systemPrompt, userPrompt) {
-  const response = await fetch(GEMINI_ENDPOINT, {
+function sanitize(text) {
+  if (typeof text !== 'string') return ''
+  return text.slice(0, MAX_INPUT_LENGTH).replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '')
+}
+
+// ─── Chamada ao proxy ────────────────────────────────────────
+async function callAI(systemPrompt, userPrompt) {
+  const response = await fetch(AI_PROXY_ENDPOINT, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      system_instruction: {
-        parts: [{ text: systemPrompt }]
-      },
-      contents: [
-        { role: 'user', parts: [{ text: userPrompt }] }
-      ],
-      generationConfig: {
-        temperature: 0.7,
-        maxOutputTokens: 1024,
-      }
+      systemPrompt: sanitize(systemPrompt),
+      userPrompt: sanitize(userPrompt)
     })
   })
 
   if (!response.ok) {
-    const err = await response.json()
-    throw new Error(`Gemini erro ${response.status}: ${err?.error?.message || 'Desconhecido'}`)
+    const err = await response.json().catch(() => ({}))
+    throw new Error(err?.error || 'Serviço de IA temporariamente indisponível. Tenta novamente.')
   }
 
   const data = await response.json()
-  return data.candidates[0].content.parts[0].text
-}
-
-// ─── Chamada ao Groq (fallback) ─────────────────────────────
-async function callGroq(systemPrompt, userPrompt) {
-  const response = await fetch(GROQ_ENDPOINT, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${GROQ_API_KEY}`
-    },
-    body: JSON.stringify({
-      model: 'llama-3.3-70b-versatile',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt }
-      ],
-      temperature: 0.7,
-      max_tokens: 1024
-    })
-  })
-
-  if (!response.ok) {
-    const err = await response.json()
-    throw new Error(`Groq erro ${response.status}: ${err?.error?.message || 'Desconhecido'}`)
-  }
-
-  const data = await response.json()
-  return data.choices[0].message.content
-}
-
-// ─── Função principal com fallback automático ───────────────
-async function callAI(systemPrompt, userPrompt) {
-  try {
-    console.log('[AI] A usar Gemini...')
-    const result = await callGemini(systemPrompt, userPrompt)
-    console.log('[AI] Gemini respondeu com sucesso.')
-    return result
-  } catch (geminiError) {
-    console.warn('[AI] Gemini falhou, a mudar para Groq...', geminiError.message)
-    try {
-      const result = await callGroq(systemPrompt, userPrompt)
-      console.log('[AI] Groq respondeu com sucesso (fallback).')
-      return result
-    } catch (groqError) {
-      console.error('[AI] Ambas APIs falharam.', groqError.message)
-      throw new Error('Serviço de IA temporariamente indisponível. Tenta novamente.')
-    }
-  }
+  return data.result
 }
 
 // ============================================================
@@ -100,15 +48,15 @@ Responde APENAS com o texto pedido, sem introduções, explicações ou comentá
 // ─── 1. Gerar/melhorar resumo profissional ──────────────────
 export async function gerarResumoProfissional(dadosUtilizador) {
   const { nome, cargo, anos_experiencia, sector, competencias, objetivo } = dadosUtilizador
-  
+
   const userPrompt = `
 Gera um resumo profissional impactante para um CV com estes dados:
-- Nome: ${nome}
-- Cargo actual/pretendido: ${cargo}
-- Anos de experiência: ${anos_experiencia}
-- Sector: ${sector}
-- Principais competências: ${competencias}
-- Objectivo profissional: ${objetivo || 'progressão de carreira'}
+- Nome: ${sanitize(nome)}
+- Cargo actual/pretendido: ${sanitize(cargo)}
+- Anos de experiência: ${sanitize(String(anos_experiencia))}
+- Sector: ${sanitize(sector)}
+- Principais competências: ${sanitize(competencias)}
+- Objectivo profissional: ${sanitize(objetivo || 'progressão de carreira')}
 
 O resumo deve ter 3-4 frases, ser orientado para resultados, e destacar o valor que o candidato traz.
 Formato: texto corrido, sem bullet points.
@@ -120,13 +68,13 @@ Formato: texto corrido, sem bullet points.
 // ─── 2. Melhorar descrição de experiência ──────────────────
 export async function melhorarExperiencia(experiencia) {
   const { cargo, empresa, descricao_raw, sector } = experiencia
-  
+
   const userPrompt = `
 Melhora esta descrição de experiência profissional para um CV:
-- Cargo: ${cargo}
-- Empresa: ${empresa}
-- Sector: ${sector}
-- Descrição actual (bruta): ${descricao_raw}
+- Cargo: ${sanitize(cargo)}
+- Empresa: ${sanitize(empresa)}
+- Sector: ${sanitize(sector)}
+- Descrição actual (bruta): ${sanitize(descricao_raw)}
 
 Reescreve em 3-5 bullet points com verbos de acção fortes (Liderou, Implementou, Reduziu, Aumentou, etc.).
 Adiciona percentagens ou métricas onde fizer sentido contextualmente.
@@ -139,7 +87,7 @@ Formato: cada bullet começa com "• ".
 // ─── 3. Sugerir competências por sector ─────────────────────
 export async function sugerirCompetencias(cargo, sector) {
   const userPrompt = `
-Para um profissional com o cargo "${cargo}" no sector "${sector}" em Angola/África,
+Para um profissional com o cargo "${sanitize(cargo)}" no sector "${sanitize(sector)}" em Angola/África,
 lista 10 competências técnicas (hard skills) e 5 competências transversais (soft skills) relevantes.
 
 Formato JSON:
@@ -165,10 +113,10 @@ export async function otimizarParaVaga(cvData, descricaoVaga) {
 Analisa este CV e esta oferta de emprego, e sugere melhorias para aumentar compatibilidade ATS:
 
 CV (resumo):
-${JSON.stringify(cvData, null, 2)}
+${sanitize(JSON.stringify(cvData, null, 2))}
 
 Oferta de emprego:
-${descricaoVaga}
+${sanitize(descricaoVaga)}
 
 Dá:
 1. Score de compatibilidade (0-100%)
@@ -195,10 +143,10 @@ Formato JSON:
 export async function gerarCartaApresentacao(cvData, empresa, vaga) {
   const userPrompt = `
 Escreve uma carta de apresentação profissional em português para:
-- Candidato: ${cvData.nome}, ${cvData.cargo}
-- Empresa: ${empresa}
-- Vaga: ${vaga}
-- Experiência: ${cvData.anos_experiencia} anos em ${cvData.sector}
+- Candidato: ${sanitize(cvData.nome)}, ${sanitize(cvData.cargo)}
+- Empresa: ${sanitize(empresa)}
+- Vaga: ${sanitize(vaga)}
+- Experiência: ${sanitize(String(cvData.anos_experiencia))} anos em ${sanitize(cvData.sector)}
 
 A carta deve ter 3 parágrafos: abertura impactante, valor que traz, call-to-action.
 Tom: profissional mas caloroso. Máximo 250 palavras.
@@ -210,9 +158,9 @@ Tom: profissional mas caloroso. Máximo 250 palavras.
 // ─── 6. Traduzir secção do CV ───────────────────────────────
 export async function traduzirSeccao(texto, idiomaDestino) {
   const userPrompt = `
-Traduz este texto de CV para ${idiomaDestino}, mantendo o tom profissional e formatação:
+Traduz este texto de CV para ${sanitize(idiomaDestino)}, mantendo o tom profissional e formatação:
 
-${texto}
+${sanitize(texto)}
 
 Responde APENAS com a tradução.
 `

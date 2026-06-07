@@ -37,36 +37,48 @@ export async function obterCVsUtilizador() {
   return data
 }
 
-// Obter um CV específico
+// Obter um CV específico (filtered by user_id for defense-in-depth)
 export async function obterCV(cvId) {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Utilizador não autenticado')
+
   const { data, error } = await supabase
     .from('cvs')
     .select('*')
     .eq('id', cvId)
+    .eq('user_id', user.id)
     .single()
 
   if (error) throw error
   return data
 }
 
-// Atualizar CV
+// Atualizar CV (filtered by user_id for defense-in-depth)
 export async function atualizarCV(cvId, dadosCV) {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Utilizador não autenticado')
+
   const { data, error } = await supabase
     .from('cvs')
     .update({ data: dadosCV, updated_at: new Date() })
     .eq('id', cvId)
+    .eq('user_id', user.id)
     .select()
 
   if (error) throw error
   return data[0]
 }
 
-// Eliminar CV
+// Eliminar CV (filtered by user_id for defense-in-depth)
 export async function eliminarCV(cvId) {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Utilizador não autenticado')
+
   const { error } = await supabase
     .from('cvs')
     .delete()
     .eq('id', cvId)
+    .eq('user_id', user.id)
 
   if (error) throw error
 }
