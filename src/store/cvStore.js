@@ -1,35 +1,37 @@
 import { create } from 'zustand'
 
+const defaultDadosCV = {
+  pessoal: {
+    nome: '',
+    email: '',
+    telefone: '',
+    localizacao: '',
+    bi_numero: '',
+    nif: '',
+    provincia: '',
+    municipio: '',
+    nacionalidade: 'Angolana',
+    data_nascimento: '',
+    estado_civil: '',
+    linguas_nacionais: []
+  },
+  resumo: '',
+  experiencia: [],
+  educacao: [],
+  competencias: {
+    hard_skills: [],
+    soft_skills: []
+  },
+  idiomas: [],
+  certificacoes: []
+}
+
 const useCVStore = create((set) => ({
   cvAtual: {
     id: null,
     titulo: 'Meu CV',
     template: 'classico',
-    dadosCV: {
-      pessoal: {
-        nome: '',
-        email: '',
-        telefone: '',
-        localizacao: '',
-        bi_numero: '',
-        nif: '',
-        provincia: '',
-        municipio: '',
-        nacionalidade: 'Angolana',
-        data_nascimento: '',
-        estado_civil: '',
-        linguas_nacionais: []
-      },
-      resumo: '',
-      experiencia: [],
-      educacao: [],
-      competencias: {
-        hard_skills: [],
-        soft_skills: []
-      },
-      idiomas: [],
-      certificacoes: []
-    }
+    dadosCV: { ...defaultDadosCV }
   },
 
   atualizarPessoal: (dados) =>
@@ -57,7 +59,7 @@ const useCVStore = create((set) => ({
         ...state.cvAtual,
         dadosCV: {
           ...state.cvAtual.dadosCV,
-          experiencia: [...state.cvAtual.dadosCV.experiencia, { id: Date.now(), ...experiencia }]
+          experiencia: [...state.cvAtual.dadosCV.experiencia, { id: crypto.randomUUID(), ...experiencia }]
         }
       }
     })),
@@ -108,7 +110,15 @@ const useCVStore = create((set) => ({
       }
     })),
 
-  carregarCV: (cv) => set({ cvAtual: cv }),
+  carregarCV: (cv) => {
+    const mergedDados = {
+      ...defaultDadosCV,
+      ...cv.dadosCV,
+      pessoal: { ...defaultDadosCV.pessoal, ...(cv.dadosCV?.pessoal || {}) },
+      competencias: { ...defaultDadosCV.competencias, ...(cv.dadosCV?.competencias || {}) }
+    }
+    set({ cvAtual: { ...cv, dadosCV: mergedDados } })
+  },
 
   limparCV: () =>
     set({
@@ -116,28 +126,7 @@ const useCVStore = create((set) => ({
         id: null,
         titulo: 'Meu CV',
         template: 'classico',
-        dadosCV: {
-          pessoal: {
-            nome: '',
-            email: '',
-            telefone: '',
-            localizacao: '',
-            bi_numero: '',
-            nif: '',
-            provincia: '',
-            municipio: '',
-            nacionalidade: 'Angolana',
-            data_nascimento: '',
-            estado_civil: '',
-            linguas_nacionais: []
-          },
-          resumo: '',
-          experiencia: [],
-          educacao: [],
-          competencias: { hard_skills: [], soft_skills: [] },
-          idiomas: [],
-          certificacoes: []
-        }
+        dadosCV: { ...defaultDadosCV }
       }
     })
 }))

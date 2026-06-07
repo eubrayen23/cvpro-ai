@@ -29,12 +29,20 @@ async function callGemini(systemPrompt, userPrompt) {
   })
 
   if (!response.ok) {
-    const err = await response.json()
-    throw new Error(`Gemini erro ${response.status}: ${err?.error?.message || 'Desconhecido'}`)
+    let errMsg = `status ${response.status}`
+    try {
+      const err = await response.json()
+      errMsg = err?.error?.message || errMsg
+    } catch {}
+    throw new Error(`Gemini erro: ${errMsg}`)
   }
 
   const data = await response.json()
-  return data.candidates[0].content.parts[0].text
+  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text
+  if (!text) {
+    throw new Error('Gemini retornou uma resposta vazia ou filtrada.')
+  }
+  return text
 }
 
 // ─── Chamada ao Groq (fallback) ─────────────────────────────
@@ -57,12 +65,20 @@ async function callGroq(systemPrompt, userPrompt) {
   })
 
   if (!response.ok) {
-    const err = await response.json()
-    throw new Error(`Groq erro ${response.status}: ${err?.error?.message || 'Desconhecido'}`)
+    let errMsg = `status ${response.status}`
+    try {
+      const err = await response.json()
+      errMsg = err?.error?.message || errMsg
+    } catch {}
+    throw new Error(`Groq erro: ${errMsg}`)
   }
 
   const data = await response.json()
-  return data.choices[0].message.content
+  const text = data?.choices?.[0]?.message?.content
+  if (!text) {
+    throw new Error('Groq retornou uma resposta vazia.')
+  }
+  return text
 }
 
 // ─── Função principal com fallback automático ───────────────
@@ -103,11 +119,11 @@ export async function gerarResumoProfissional(dadosUtilizador) {
   
   const userPrompt = `
 Gera um resumo profissional impactante para um CV com estes dados:
-- Nome: ${nome}
-- Cargo actual/pretendido: ${cargo}
-- Anos de experiência: ${anos_experiencia}
-- Sector: ${sector}
-- Principais competências: ${competencias}
+- Nome: ${nome || 'Não especificado'}
+- Cargo actual/pretendido: ${cargo || 'Não especificado'}
+- Anos de experiência: ${anos_experiencia || 'Não especificado'}
+- Sector: ${sector || 'Não especificado'}
+- Principais competências: ${competencias || 'Não especificado'}
 - Objectivo profissional: ${objetivo || 'progressão de carreira'}
 
 O resumo deve ter 3-4 frases, ser orientado para resultados, e destacar o valor que o candidato traz.
@@ -123,10 +139,10 @@ export async function melhorarExperiencia(experiencia) {
   
   const userPrompt = `
 Melhora esta descrição de experiência profissional para um CV:
-- Cargo: ${cargo}
-- Empresa: ${empresa}
-- Sector: ${sector}
-- Descrição actual (bruta): ${descricao_raw}
+- Cargo: ${cargo || 'Não especificado'}
+- Empresa: ${empresa || 'Não especificado'}
+- Sector: ${sector || 'Não especificado'}
+- Descrição actual (bruta): ${descricao_raw || 'Não especificado'}
 
 Reescreve em 3-5 bullet points com verbos de acção fortes (Liderou, Implementou, Reduziu, Aumentou, etc.).
 Adiciona percentagens ou métricas onde fizer sentido contextualmente.
@@ -195,10 +211,10 @@ Formato JSON:
 export async function gerarCartaApresentacao(cvData, empresa, vaga) {
   const userPrompt = `
 Escreve uma carta de apresentação profissional em português para:
-- Candidato: ${cvData.nome}, ${cvData.cargo}
+- Candidato: ${cvData.nome || 'Não especificado'}, ${cvData.cargo || 'Não especificado'}
 - Empresa: ${empresa}
 - Vaga: ${vaga}
-- Experiência: ${cvData.anos_experiencia} anos em ${cvData.sector}
+- Experiência: ${cvData.anos_experiencia || 'Não especificado'} anos em ${cvData.sector || 'Não especificado'}
 
 A carta deve ter 3 parágrafos: abertura impactante, valor que traz, call-to-action.
 Tom: profissional mas caloroso. Máximo 250 palavras.
@@ -217,8 +233,8 @@ ${texto}
 Responde APENAS com a tradução.
 `
 
-  const systemTradução = `És um tradutor especializado em documentos profissionais e CVs. Mantens sempre o tom formal e a terminologia de RH correcta.`
-  return await callAI(systemTradução, userPrompt)
+  const systemTraducao = `És um tradutor especializado em documentos profissionais e CVs. Mantens sempre o tom formal e a terminologia de RH correcta.`
+  return await callAI(systemTraducao, userPrompt)
 }
 
-export default { callAI, gerarResumoProfissional, melhorarExperiencia, sugerirCompetencias, otimizarParaVaga, gerarCartaApresentacao, traduzirSeccao }
+export { callAI }

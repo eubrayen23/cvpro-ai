@@ -10,6 +10,7 @@ export function Editor({ cvId, onBack }) {
   const { cvAtual, carregarCV } = useCVStore()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [saveMsg, setSaveMsg] = useState('')
 
   useEffect(() => {
     carregarCVEditor()
@@ -33,12 +34,15 @@ export function Editor({ cvId, onBack }) {
 
   const handleGuardar = async () => {
     setSaving(true)
+    setSaveMsg('')
     try {
       await atualizarCV(cvAtual.id, cvAtual.dadosCV)
-      alert('CV guardado com sucesso!')
+      setSaveMsg('CV guardado com sucesso!')
+      setTimeout(() => setSaveMsg(''), 3000)
     } catch (err) {
       console.error('Erro ao guardar CV:', err)
-      alert('Erro ao guardar CV')
+      setSaveMsg('Erro ao guardar CV. Tenta novamente.')
+      setTimeout(() => setSaveMsg(''), 5000)
     } finally {
       setSaving(false)
     }
@@ -51,11 +55,16 @@ export function Editor({ cvId, onBack }) {
       <nav className="bg-white shadow">
         <div className="max-w-6xl mx-auto px-6 py-4 flex justify-between items-center">
           <h1 className="text-2xl font-bold text-blue-600">CVPro AI — Editor</h1>
-          <div className="flex gap-4">
+          <div className="flex gap-4 items-center">
+            {saveMsg && (
+              <p className={`text-sm ${saveMsg.includes('Erro') ? 'text-red-500' : 'text-green-600'}`}>
+                {saveMsg}
+              </p>
+            )}
             <Button onClick={handleGuardar} disabled={saving}>
-              {saving ? '⏳ A guardar...' : '💾 Guardar'}
+              {saving ? 'A guardar...' : 'Guardar'}
             </Button>
-            <Button onClick={onBack} variant="secondary">← Voltar</Button>
+            <Button onClick={onBack} variant="secondary">Voltar</Button>
           </div>
         </div>
       </nav>

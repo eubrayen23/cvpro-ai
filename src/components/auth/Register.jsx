@@ -3,7 +3,7 @@ import { supabase } from '../../services/supabase'
 import { Button } from '../ui/Button'
 import { Input } from '../ui/Input'
 
-export function Register({ onSuccess }) {
+export function Register({ onSuccess, onNavigateTo }) {
   const [nome, setNome] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -15,6 +15,18 @@ export function Register({ onSuccess }) {
     e.preventDefault()
     setLoading(true)
     setError('')
+
+    if (!nome.trim()) {
+      setError('O nome é obrigatório')
+      setLoading(false)
+      return
+    }
+
+    if (password.length < 6) {
+      setError('A senha deve ter pelo menos 6 caracteres')
+      setLoading(false)
+      return
+    }
 
     if (password !== confirmPassword) {
       setError('As senhas não coincidem')
@@ -43,41 +55,53 @@ export function Register({ onSuccess }) {
   }
 
   return (
-    <div className="max-w-md mx-auto p-6 bg-white rounded-lg shadow">
-      <h1 className="text-2xl font-bold mb-6">Registar-se no CVPro AI</h1>
-      <form onSubmit={handleRegister}>
-        <Input
-          label="Nome Completo"
-          value={nome}
-          onChange={(e) => setNome(e.target.value)}
-          placeholder="Teu nome"
-        />
-        <Input
-          label="Email"
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="teu@email.com"
-        />
-        <Input
-          label="Senha"
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          placeholder="Cria uma senha segura"
-        />
-        <Input
-          label="Confirmar Senha"
-          type="password"
-          value={confirmPassword}
-          onChange={(e) => setConfirmPassword(e.target.value)}
-          placeholder="Confirma a senha"
-        />
-        {error && <p className="text-red-500 text-sm mb-4">{error}</p>}
-        <Button disabled={loading} className="w-full">
-          {loading ? 'A registar...' : 'Registar'}
-        </Button>
-      </form>
+    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="max-w-md w-full mx-4 p-6 bg-white rounded-lg shadow">
+        <h1 className="text-2xl font-bold mb-6">Registar-se no CVPro AI</h1>
+        <form onSubmit={handleRegister}>
+          <Input
+            label="Nome Completo"
+            value={nome}
+            onChange={(e) => setNome(e.target.value)}
+            placeholder="Teu nome"
+            required
+          />
+          <Input
+            label="Email"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="teu@email.com"
+            required
+          />
+          <Input
+            label="Senha"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="Mínimo 6 caracteres"
+            required
+          />
+          <Input
+            label="Confirmar Senha"
+            type="password"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            placeholder="Confirma a senha"
+            required
+          />
+          {error && <p className="text-red-500 text-sm mb-4">{error}</p>}
+          <Button disabled={loading} className="w-full">
+            {loading ? 'A registar...' : 'Registar'}
+          </Button>
+        </form>
+        <p className="text-center text-sm text-gray-600 mt-4">
+          Já tens conta?{' '}
+          <button onClick={() => onNavigateTo('login')} className="text-blue-600 hover:underline">
+            Entrar
+          </button>
+        </p>
+      </div>
     </div>
   )
 }

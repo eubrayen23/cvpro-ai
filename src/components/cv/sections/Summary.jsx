@@ -1,5 +1,4 @@
-import { useState } from 'react'
-import { useAI } from '../../../hooks/useAI'
+import { useState, useEffect } from 'react'
 import { AIAssistant } from '../../ai/AIAssistant'
 import { Button } from '../../ui/Button'
 import useCVStore from '../../../store/cvStore'
@@ -9,6 +8,10 @@ export function Summary() {
   const [resumoTemporario, setResumoTemporario] = useState(cvAtual.dadosCV.resumo)
   const [editando, setEditando] = useState(false)
 
+  useEffect(() => {
+    setResumoTemporario(cvAtual.dadosCV.resumo)
+  }, [cvAtual.dadosCV.resumo])
+
   const handleAceitarSugestao = (sugestao) => {
     atualizarResumo(sugestao)
     setResumoTemporario(sugestao)
@@ -16,7 +19,7 @@ export function Summary() {
 
   return (
     <div className="bg-white p-6 rounded-lg shadow mb-6">
-      <h2 className="text-xl font-bold mb-4">📝 Resumo Profissional</h2>
+      <h2 className="text-xl font-bold mb-4">Resumo Profissional</h2>
       
       {editando ? (
         <textarea
@@ -37,7 +40,7 @@ export function Summary() {
           }}
           variant="primary"
         >
-          {editando ? '✓ Guardar' : '✏️ Editar'}
+          {editando ? 'Guardar' : 'Editar'}
         </Button>
       </div>
 

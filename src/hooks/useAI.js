@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { gerarResumoProfissional, melhorarExperiencia, sugerirCompetencias, otimizarParaVaga, gerarCartaApresentacao, traduzirSeccao } from '../services/aiService'
-import { registarUsoIA } from '../services/cvService'
+import { registarUsoIA, verificarLimiteIA } from '../services/cvService'
 
 export function useAI() {
   const [loading, setLoading] = useState(false)
@@ -10,8 +10,13 @@ export function useAI() {
     setLoading(true)
     setError(null)
     try {
+      const permitido = await verificarLimiteIA()
+      if (!permitido) {
+        throw new Error('Limite diário de IA atingido. Tenta novamente amanhã.')
+      }
       const resultado = await funcaoIA(...args)
-      await registarUsoIA(tipo, 0) // tokens estimados como 0 por enquanto
+      const tokensEstimados = Math.ceil((resultado?.length || 0) / 4)
+      await registarUsoIA(tipo, tokensEstimados)
       return resultado
     } catch (err) {
       setError(err.message)
