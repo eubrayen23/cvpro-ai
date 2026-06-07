@@ -1,25 +1,16 @@
-import { useState } from 'react'
 import { gerarResumoProfissional, melhorarExperiencia, sugerirCompetencias, otimizarParaVaga, gerarCartaApresentacao, traduzirSeccao } from '../services/aiService'
 import { registarUsoIA } from '../services/cvService'
+import { useAsyncAction } from './useAsyncAction'
 
 export function useAI() {
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState(null)
+  const { loading, error, execute } = useAsyncAction()
 
-  const executarIA = async (funcaoIA, tipo, ...args) => {
-    setLoading(true)
-    setError(null)
-    try {
+  const executarIA = (funcaoIA, tipo, ...args) =>
+    execute(async () => {
       const resultado = await funcaoIA(...args)
-      await registarUsoIA(tipo, 0) // tokens estimados como 0 por enquanto
+      await registarUsoIA(tipo, 0)
       return resultado
-    } catch (err) {
-      setError(err.message)
-      return null
-    } finally {
-      setLoading(false)
-    }
-  }
+    })
 
   return {
     loading,

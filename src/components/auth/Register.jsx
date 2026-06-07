@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { supabase } from '../../services/supabase'
+import { useAsyncAction } from '../../hooks/useAsyncAction'
 import { Button } from '../ui/Button'
 import { Input } from '../ui/Input'
 
@@ -8,21 +9,15 @@ export function Register({ onSuccess }) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
+  const { loading, error, execute } = useAsyncAction()
 
-  const handleRegister = async (e) => {
+  const handleRegister = (e) => {
     e.preventDefault()
-    setLoading(true)
-    setError('')
+    execute(async () => {
+      if (password !== confirmPassword) {
+        throw new Error('As senhas não coincidem')
+      }
 
-    if (password !== confirmPassword) {
-      setError('As senhas não coincidem')
-      setLoading(false)
-      return
-    }
-
-    try {
       const { data, error: authError } = await supabase.auth.signUp({
         email,
         password,
@@ -35,11 +30,7 @@ export function Register({ onSuccess }) {
 
       if (authError) throw authError
       onSuccess(data.user)
-    } catch (err) {
-      setError(err.message)
-    } finally {
-      setLoading(false)
-    }
+    })
   }
 
   return (

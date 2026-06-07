@@ -1,9 +1,9 @@
 import { supabase } from './supabase'
+import { getAuthUser } from '../utils/getAuthUser'
 
 // Criar novo CV
 export async function criarCV(titulo, template = 'classico') {
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Utilizador não autenticado')
+  const user = await getAuthUser()
 
   const { data, error } = await supabase
     .from('cvs')
@@ -24,8 +24,7 @@ export async function criarCV(titulo, template = 'classico') {
 
 // Obter todos os CVs do utilizador
 export async function obterCVsUtilizador() {
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Utilizador não autenticado')
+  const user = await getAuthUser()
 
   const { data, error } = await supabase
     .from('cvs')

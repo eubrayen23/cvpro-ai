@@ -1,32 +1,24 @@
 import { useState } from 'react'
 import { supabase } from '../../services/supabase'
+import { useAsyncAction } from '../../hooks/useAsyncAction'
 import { Button } from '../ui/Button'
 import { Input } from '../ui/Input'
 
 export function Login({ onSuccess }) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
+  const { loading, error, execute } = useAsyncAction()
 
-  const handleLogin = async (e) => {
+  const handleLogin = (e) => {
     e.preventDefault()
-    setLoading(true)
-    setError('')
-
-    try {
+    execute(async () => {
       const { data, error: authError } = await supabase.auth.signInWithPassword({
         email,
         password,
       })
-
       if (authError) throw authError
       onSuccess(data.user)
-    } catch (err) {
-      setError(err.message)
-    } finally {
-      setLoading(false)
-    }
+    })
   }
 
   return (
