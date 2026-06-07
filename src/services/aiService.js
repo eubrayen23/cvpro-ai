@@ -3,6 +3,8 @@
 // Gemini (principal) → Groq (fallback se Gemini falhar)
 // ============================================================
 
+import { parseAIJson } from '../utils/parseAIJson'
+
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY
 const GROQ_API_KEY = import.meta.env.VITE_GROQ_API_KEY
 
@@ -152,11 +154,7 @@ Responde APENAS com o JSON, sem mais nada.
 `
 
   const resultado = await callAI(SYSTEM_BASE, userPrompt)
-  try {
-    return JSON.parse(resultado.replace(/```json|```/g, '').trim())
-  } catch {
-    return { hard_skills: [], soft_skills: [] }
-  }
+  return parseAIJson(resultado, { hard_skills: [], soft_skills: [] })
 }
 
 // ─── 4. Otimizar CV para oferta de emprego específica ──────
@@ -184,11 +182,7 @@ Formato JSON:
 `
 
   const resultado = await callAI(SYSTEM_BASE, userPrompt)
-  try {
-    return JSON.parse(resultado.replace(/```json|```/g, '').trim())
-  } catch {
-    return { score: 0, keywords_em_falta: [], sugestoes: [] }
-  }
+  return parseAIJson(resultado, { score: 0, keywords_em_falta: [], sugestoes: [] })
 }
 
 // ─── 5. Gerar carta de apresentação ─────────────────────────
