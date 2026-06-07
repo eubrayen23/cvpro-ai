@@ -1,104 +1,40 @@
 // ============================================================
-// aiService.js — Serviço central de IA com fallback automático
-// Gemini (principal) → Groq (fallback se Gemini falhar)
+// aiService.js — Serviço central de IA
+// As chamadas passam por uma Netlify Function (/.netlify/functions/ai)
+// para manter as chaves de API fora do bundle do frontend.
+// O fallback Gemini → Groq é tratado no servidor.
 // ============================================================
 
-const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY
-const GROQ_API_KEY = import.meta.env.VITE_GROQ_API_KEY
+const AI_ENDPOINT = '/.netlify/functions/ai'
 
-const GEMINI_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`
-const GROQ_ENDPOINT = `https://api.groq.com/openai/v1/chat/completions`
-
-// ─── Chamada ao Gemini ──────────────────────────────────────
-async function callGemini(systemPrompt, userPrompt) {
-  const response = await fetch(GEMINI_ENDPOINT, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      system_instruction: {
-        parts: [{ text: systemPrompt }]
-      },
-      contents: [
-        { role: 'user', parts: [{ text: userPrompt }] }
-      ],
-      generationConfig: {
-        temperature: 0.7,
-        maxOutputTokens: 1024,
-      }
-    })
-  })
-
-  if (!response.ok) {
-    let errMsg = `status ${response.status}`
-    try {
-      const err = await response.json()
-      errMsg = err?.error?.message || errMsg
-    } catch {}
-    throw new Error(`Gemini erro: ${errMsg}`)
-  }
-
-  const data = await response.json()
-  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text
-  if (!text) {
-    throw new Error('Gemini retornou uma resposta vazia ou filtrada.')
-  }
-  return text
-}
-
-// ─── Chamada ao Groq (fallback) ─────────────────────────────
-async function callGroq(systemPrompt, userPrompt) {
-  const response = await fetch(GROQ_ENDPOINT, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${GROQ_API_KEY}`
-    },
-    body: JSON.stringify({
-      model: 'llama-3.3-70b-versatile',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt }
-      ],
-      temperature: 0.7,
-      max_tokens: 1024
-    })
-  })
-
-  if (!response.ok) {
-    let errMsg = `status ${response.status}`
-    try {
-      const err = await response.json()
-      errMsg = err?.error?.message || errMsg
-    } catch {}
-    throw new Error(`Groq erro: ${errMsg}`)
-  }
-
-  const data = await response.json()
-  const text = data?.choices?.[0]?.message?.content
-  if (!text) {
-    throw new Error('Groq retornou uma resposta vazia.')
-  }
-  return text
-}
-
-// ─── Função principal com fallback automático ───────────────
+// ─── Função principal ───────────────────────────────────────
 async function callAI(systemPrompt, userPrompt) {
+  let response
   try {
-    console.log('[AI] A usar Gemini...')
-    const result = await callGemini(systemPrompt, userPrompt)
-    console.log('[AI] Gemini respondeu com sucesso.')
-    return result
-  } catch (geminiError) {
-    console.warn('[AI] Gemini falhou, a mudar para Groq...', geminiError.message)
-    try {
-      const result = await callGroq(systemPrompt, userPrompt)
-      console.log('[AI] Groq respondeu com sucesso (fallback).')
-      return result
-    } catch (groqError) {
-      console.error('[AI] Ambas APIs falharam.', groqError.message)
-      throw new Error('Serviço de IA temporariamente indisponível. Tenta novamente.')
-    }
+    response = await fetch(AI_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ systemPrompt, userPrompt })
+    })
+  } catch {
+    throw new Error('Não foi possível contactar o serviço de IA. Verifica a tua ligação.')
   }
+
+  if (!response.ok) {
+    let errMsg = 'Serviço de IA temporariamente indisponível. Tenta novamente.'
+    try {
+      const err = await response.json()
+      errMsg = err?.error || errMsg
+    } catch {}
+    throw new Error(errMsg)
+  }
+
+  const data = await response.json()
+  const text = data?.text
+  if (!text) {
+    throw new Error('O serviço de IA retornou uma resposta vazia.')
+  }
+  return text
 }
 
 // ============================================================
