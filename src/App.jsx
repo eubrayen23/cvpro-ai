@@ -10,6 +10,7 @@ function App() {
   const [currentPage, setCurrentPage] = useState('landing')
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [authError, setAuthError] = useState(null)
   const [editorCVId, setEditorCVId] = useState(null)
 
   useEffect(() => {
@@ -17,6 +18,7 @@ function App() {
   }, [])
 
   const verificarUtilizador = async () => {
+    setAuthError(null)
     try {
       const { data: { user } } = await supabase.auth.getUser()
       if (user) {
@@ -27,6 +29,8 @@ function App() {
       }
     } catch (err) {
       console.error('Erro ao verificar utilizador:', err)
+      setAuthError('Falha ao verificar sessão. Verifica a tua ligação.')
+      setCurrentPage('landing')
     } finally {
       setLoading(false)
     }
@@ -56,6 +60,11 @@ function App() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {authError && (
+        <div className="bg-red-50 border-b border-red-200 px-6 py-3 text-center text-red-700 text-sm">
+          {authError}
+        </div>
+      )}
       {currentPage === 'landing' && (
         <Landing onNavigateTo={handleNavigateTo} />
       )}

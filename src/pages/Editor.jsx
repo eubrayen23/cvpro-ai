@@ -9,6 +9,7 @@ import { Button } from '../components/ui/Button'
 export function Editor({ cvId, onBack }) {
   const { cvAtual, carregarCV } = useCVStore()
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(null)
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
@@ -16,6 +17,7 @@ export function Editor({ cvId, onBack }) {
   }, [cvId])
 
   const carregarCVEditor = async () => {
+    setLoadError(null)
     try {
       const cv = await obterCV(cvId)
       carregarCV({
@@ -26,6 +28,7 @@ export function Editor({ cvId, onBack }) {
       })
     } catch (err) {
       console.error('Erro ao carregar CV:', err)
+      setLoadError('Não foi possível carregar o CV. Verifica a tua ligação e tenta novamente.')
     } finally {
       setLoading(false)
     }
@@ -45,6 +48,14 @@ export function Editor({ cvId, onBack }) {
   }
 
   if (loading) return <div className="text-center py-10">A carregar...</div>
+
+  if (loadError) return (
+    <div className="text-center py-10">
+      <p className="text-red-500 mb-4">{loadError}</p>
+      <Button onClick={carregarCVEditor}>Tentar novamente</Button>
+      <Button onClick={onBack} variant="secondary" className="ml-4">← Voltar</Button>
+    </div>
+  )
 
   return (
     <div className="min-h-screen bg-gray-50">
