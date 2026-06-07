@@ -11,10 +11,15 @@ export function useAI() {
     setError(null)
     try {
       const resultado = await funcaoIA(...args)
-      await registarUsoIA(tipo, 0) // tokens estimados como 0 por enquanto
+      try {
+        await registarUsoIA(tipo, 0) // tokens estimados como 0 por enquanto
+      } catch (usageErr) {
+        console.warn('[useAI] Falha ao registar uso de IA (resultado não perdido):', usageErr)
+      }
       return resultado
     } catch (err) {
-      setError(err.message)
+      const message = err instanceof Error ? err.message : String(err)
+      setError(message)
       return null
     } finally {
       setLoading(false)

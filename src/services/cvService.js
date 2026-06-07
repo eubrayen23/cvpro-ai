@@ -74,7 +74,10 @@ export async function eliminarCV(cvId) {
 // Registar uso de IA (para rate limiting)
 export async function registarUsoIA(tipo, tokensUsados, provider = 'gemini') {
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return
+  if (!user) {
+    console.warn('[registarUsoIA] Utilizador não autenticado — uso de IA não registado.')
+    return
+  }
 
   const { error } = await supabase
     .from('ai_usage')
@@ -85,7 +88,10 @@ export async function registarUsoIA(tipo, tokensUsados, provider = 'gemini') {
       provider
     }])
 
-  if (error) console.error('Erro ao registar uso de IA:', error)
+  if (error) {
+    console.error('Erro ao registar uso de IA:', error)
+    throw new Error(`Falha ao registar uso de IA: ${error.message}`)
+  }
 }
 
 export default { criarCV, obterCVsUtilizador, obterCV, atualizarCV, eliminarCV, registarUsoIA }

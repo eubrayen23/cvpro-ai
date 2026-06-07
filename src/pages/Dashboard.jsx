@@ -7,8 +7,10 @@ import { Modal } from '../components/ui/Modal'
 export function Dashboard({ onNavigateTo, onAbrirEditor }) {
   const [cvs, setCVs] = useState([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
   const [mostrarModal, setMostrarModal] = useState(false)
   const [novoTitulo, setNovoTitulo] = useState('')
+  const [novoError, setNovoError] = useState(null)
   const [user, setUser] = useState(null)
 
   useEffect(() => {
@@ -16,6 +18,7 @@ export function Dashboard({ onNavigateTo, onAbrirEditor }) {
   }, [])
 
   const carregarDados = async () => {
+    setError(null)
     try {
       const { data: { user } } = await supabase.auth.getUser()
       setUser(user)
@@ -23,6 +26,7 @@ export function Dashboard({ onNavigateTo, onAbrirEditor }) {
       setCVs(cvsList)
     } catch (err) {
       console.error('Erro ao carregar CVs:', err)
+      setError('Não foi possível carregar os CVs. Tenta novamente.')
     } finally {
       setLoading(false)
     }
@@ -30,6 +34,7 @@ export function Dashboard({ onNavigateTo, onAbrirEditor }) {
 
   const handleNovoCV = async () => {
     if (!novoTitulo.trim()) return
+    setNovoError(null)
     try {
       const novoCV = await criarCV(novoTitulo, 'classico')
       setCVs([...cvs, novoCV])
@@ -38,11 +43,15 @@ export function Dashboard({ onNavigateTo, onAbrirEditor }) {
       onAbrirEditor(novoCV.id)
     } catch (err) {
       console.error('Erro ao criar CV:', err)
+      setNovoError('Não foi possível criar o CV. Tenta novamente.')
     }
   }
 
   const handleLogout = async () => {
-    await supabase.auth.signOut()
+    const { error: signOutError } = await supabase.auth.signOut()
+    if (signOutError) {
+      console.error('Erro ao terminar sessão:', signOutError)
+    }
     onNavigateTo('landing')
   }
 
@@ -66,6 +75,11 @@ export function Dashboard({ onNavigateTo, onAbrirEditor }) {
 
         {loading ? (
           <p className="text-center text-gray-600">A carregar...</p>
+        ) : error ? (
+          <div className="text-center py-12">
+            <p className="text-red-500 mb-4">{error}</p>
+            <Button onClick={carregarDados}>Tentar novamente</Button>
+          </div>
         ) : cvs.length === 0 ? (
           <div className="text-center py-12">
             <p className="text-gray-600 mb-6">Ainda não tens nenhum CV. Cria um novo para começar!</p>
@@ -97,9 +111,10 @@ export function Dashboard({ onNavigateTo, onAbrirEditor }) {
           onChange={(e) => setNovoTitulo(e.target.value)}
           className="w-full px-3 py-2 border border-gray-300 rounded-lg mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
+        {novoError && <p className="text-red-500 text-sm mb-3">{novoError}</p>}
         <div className="flex gap-4">
           <Button onClick={handleNovoCV} className="flex-1">Criar</Button>
-          <Button onClick={() => setMostrarModal(false)} variant="secondary" className="flex-1">
+          <Button onClick={() => { setMostrarModal(false); setNovoError(null) }} variant="secondary" className="flex-1">
             Cancelar
           </Button>
         </div>

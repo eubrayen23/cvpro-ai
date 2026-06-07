@@ -29,12 +29,20 @@ async function callGemini(systemPrompt, userPrompt) {
   })
 
   if (!response.ok) {
-    const err = await response.json()
-    throw new Error(`Gemini erro ${response.status}: ${err?.error?.message || 'Desconhecido'}`)
+    let message = 'Desconhecido'
+    try {
+      const err = await response.json()
+      message = err?.error?.message || message
+    } catch (_) { /* response wasn't JSON */ }
+    throw new Error(`Gemini erro ${response.status}: ${message}`)
   }
 
   const data = await response.json()
-  return data.candidates[0].content.parts[0].text
+  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text
+  if (!text) {
+    throw new Error('Gemini devolveu uma resposta vazia ou inesperada')
+  }
+  return text
 }
 
 // ─── Chamada ao Groq (fallback) ─────────────────────────────
@@ -57,12 +65,20 @@ async function callGroq(systemPrompt, userPrompt) {
   })
 
   if (!response.ok) {
-    const err = await response.json()
-    throw new Error(`Groq erro ${response.status}: ${err?.error?.message || 'Desconhecido'}`)
+    let message = 'Desconhecido'
+    try {
+      const err = await response.json()
+      message = err?.error?.message || message
+    } catch (_) { /* response wasn't JSON */ }
+    throw new Error(`Groq erro ${response.status}: ${message}`)
   }
 
   const data = await response.json()
-  return data.choices[0].message.content
+  const text = data?.choices?.[0]?.message?.content
+  if (!text) {
+    throw new Error('Groq devolveu uma resposta vazia ou inesperada')
+  }
+  return text
 }
 
 // ─── Função principal com fallback automático ───────────────
@@ -154,8 +170,9 @@ Responde APENAS com o JSON, sem mais nada.
   const resultado = await callAI(SYSTEM_BASE, userPrompt)
   try {
     return JSON.parse(resultado.replace(/```json|```/g, '').trim())
-  } catch {
-    return { hard_skills: [], soft_skills: [] }
+  } catch (parseError) {
+    console.warn('[AI] Falha ao interpretar JSON de competências:', parseError.message)
+    throw new Error('A IA devolveu competências num formato inválido. Tenta novamente.')
   }
 }
 
@@ -186,8 +203,9 @@ Formato JSON:
   const resultado = await callAI(SYSTEM_BASE, userPrompt)
   try {
     return JSON.parse(resultado.replace(/```json|```/g, '').trim())
-  } catch {
-    return { score: 0, keywords_em_falta: [], sugestoes: [] }
+  } catch (parseError) {
+    console.warn('[AI] Falha ao interpretar JSON de otimização:', parseError.message)
+    throw new Error('A IA devolveu uma análise num formato inválido. Tenta novamente.')
   }
 }
 
